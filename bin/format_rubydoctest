@@ -1,0 +1,59 @@
+#! /usr/bin/ruby
+#
+# rd2 -r rd/rd2html-lib *.rb|elinks --dump
+
+class Block
+  attr_reader :type
+  def initialize type
+	  @type = type
+    @lines = []
+  end
+
+  def push s
+	  # if (@type == :doctest)
+		# 	s = s.sub(/^\s*>>/,'  ')
+		# 	s = s.sub(/^\s*=>/,'  ')
+		# end
+		s = s.strip if (@type == :text)
+    @lines.push(s)
+  end
+
+	def to_html
+	  return "<pre><FONT COLOR=\"green\">"+@lines.join("\n")+"</font></pre>\n" if @type != :doctest
+
+	  html = `echo "#{@lines.to_s}"|enscript --color --language=html -Eruby -p -`.split(/\n/)
+		html[10..-5].join("\n")+"\n"
+	end
+end
+
+def guesstype s
+  s = s.strip
+	return :empty if s == ''
+	return :remark if s =~ /^#/
+	return :doctest if s =~ /^>> /
+	return :doctest if s =~ /^=> /
+	return :text
+end
+
+blocks = []
+ARGV.each do | fn |
+  type = nil, block=nil
+  File.new(fn).each_line do | s |
+    ntype = guesstype(s)
+		next if ntype == :empty or ntype == :remark
+    if ntype == type
+      block = Block.new(ntype) if !block
+    else
+		  blocks.push(block) if block
+			block = Block.new(ntype)
+    end
+    block.push(s)
+		type = ntype
+  end
+  blocks.push(block) if block
+end
+
+blocks.each do | block |
+  print block.to_html
+end
+
